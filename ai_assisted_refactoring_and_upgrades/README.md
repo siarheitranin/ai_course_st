@@ -8,11 +8,22 @@ This repository holds a simple Playwright framework using TypeScript and page ob
 .
 |-- src/
 |   |-- components/
+|	|	|-- BaseComponent.ts
+|	|	`-- HeaderComponent.ts
 |   |-- fixtures/
+|	|	`-- BaseTest.ts
 |   |-- pages/
-|   `-- utils/
-|-- tests/
-|-- .gitignore
+|	|	|-- BasePage.ts
+|	|	|-- HomePage.ts
+|	|	`-- LoginPage.ts
+|   |-- utils/
+|	|	|-- envHelper.ts
+|	|	`-- logger.ts
+|-- `tests/
+|	|-- example.spec.ts
+|	|-- home.spec.ts
+|	`-- login.spec.ts
+`-- playwright.config.ts	
 ```
 
 ## Setup
