@@ -1,0 +1,20 @@
+{
+  "name": "ai_assisted_refactoring_and_upgrades",
+  "version": "1.0.0",
+  "description": "This repository holds a simple Playwright framework using TypeScript and page objects.",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "@types/node": "^25.5.0",
+    "typescript": "^6.0.2"
+  }
+}

@@ -1,4 +1,4 @@
-import { Page, expect } from '@playwright/test';
+import { Page, Locator } from '@playwright/test';
 import { BasePage } from './BasePage';
 import { HomePage } from './HomePage';
 
@@ -19,12 +19,33 @@ export class LoginPage extends BasePage {
   }
 
   /**
+   * Locator for Remember me checkbox.
+   */
+  rememberMeCheckbox(): Locator {
+    return this.page.getByTestId('remember-me');
+  }
+
+  /**
+   * Enable Remember me option.
+   */
+  async clickRememberMe(): Promise<void> {
+    await this.click(this.rememberMeCheckbox());
+  }
+
+  /**
+   * Submit login form.
+   */
+  async submit(): Promise<void> {
+    await this.page.getByRole('button', { name: 'Login' }).click();
+  }
+
+  /**
    * Perform login action.
    */
   async login(email: string, password: string): Promise<void> {
     await this.fillField('Email', email);
     await this.fillField('Password', password);
-    await this.page.getByRole('button', { name: 'Login' }).click();
+    await this.submit();
   }
 
   /**

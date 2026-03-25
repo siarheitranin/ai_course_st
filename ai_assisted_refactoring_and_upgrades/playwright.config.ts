@@ -2,7 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 import { getEnv } from './src/utils/envHelper';
 
 export default defineConfig({
-  testDir: './tests/e2e',
+  testDir: './tests',
   timeout: 30_000,
   retries: 1,
   use: {
