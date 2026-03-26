@@ -35,6 +35,13 @@ export class SearchPage extends BasePage {
   }
 
   /**
+   * Filter control locator by filter name.
+   */
+  applyFilter(filterName: string): Locator {
+    return this.page.getByTestId('filter-option').filter({ hasText: filterName });
+  }
+
+  /**
    * Product result locator by name.
    */
   productResult(name: string): Locator {

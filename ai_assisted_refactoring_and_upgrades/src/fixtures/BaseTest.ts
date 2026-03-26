@@ -5,6 +5,7 @@ import { CheckoutPage } from '../pages/CheckoutPage';
 import { HomePage } from '../pages/HomePage';
 import { LoginPage } from '../pages/LoginPage';
 import { ProductPage } from '../pages/ProductPage';
+import { ResultsPage } from '../pages/ResultsPage';
 import { SearchPage } from '../pages/SearchPage';
 
 /**
@@ -27,6 +28,12 @@ type CheckoutData = {
   searchQuery: string;
 };
 
+type SearchData = {
+  filterName: string;
+  maxPrice: number;
+  query: string;
+};
+
 type Fixtures = {
   authPage: AuthPage;
   authUsers: AuthUsers;
@@ -36,6 +43,8 @@ type Fixtures = {
   homePage: HomePage;
   loginPage: LoginPage;
   productPage: ProductPage;
+  resultsPage: ResultsPage;
+  searchData: SearchData;
   searchPage: SearchPage;
 };
 
@@ -77,6 +86,16 @@ export const test = base.extend<Fixtures>({
   },
   productPage: async ({ page }, use) => {
     await use(new ProductPage(page));
+  },
+  resultsPage: async ({ page }, use) => {
+    await use(new ResultsPage(page));
+  },
+  searchData: async ({}, use) => {
+    await use({
+      filterName: 'Price < $1000',
+      maxPrice: 1000,
+      query: 'Laptop',
+    });
   },
   searchPage: async ({ page }, use) => {
     await use(new SearchPage(page));
