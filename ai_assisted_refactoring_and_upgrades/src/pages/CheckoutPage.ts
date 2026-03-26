@@ -17,7 +17,7 @@ export class CheckoutPage extends BasePage {
    * Checkout total locator.
    */
   total(): Locator {
-    return this.page.getByTestId('cart-total');
+    return this.page.getByTestId('{{newTestId}}');
   }
 
   /**
