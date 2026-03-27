@@ -1,0 +1,6 @@
+node_modules/
+test-results/
+playwright-report/
+.playwright/
+# Claude Code Cygwin temp directory artifacts
+cygdrive*
