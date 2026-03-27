@@ -1,4 +1,4 @@
-import { type Page, type Locator } from '@playwright/test';
+import { expect, type Page, type Locator } from '@playwright/test';
 
 export class HomePage {
   readonly page: Page;
@@ -11,13 +11,10 @@ export class HomePage {
   constructor(page: Page) {
     this.page = page;
     this.getStartedLink = page.getByRole('link', { name: 'Get started' });
-    // DEGRADED: navBar is no longer scoped — the whole page is searched instead of the <nav> landmark
     this.navBar = page.getByRole('navigation');
-    // DEGRADED: exact: true removed — partial name matching; e.g. 'API' now matches 'API Reference' anywhere on the page
-    // DEGRADED: links are no longer scoped to navBar — a link with the same text anywhere on the page will satisfy the locator
-    this.docsLink = page.getByRole('link', { name: 'Docs' });
-    this.apiLink = page.getByRole('link', { name: 'API' });
-    this.communityLink = page.getByRole('link', { name: 'Community' });
+    this.docsLink = this.navBar.getByRole('link', { name: 'Docs', exact: true });
+    this.apiLink = this.navBar.getByRole('link', { name: 'API', exact: true });
+    this.communityLink = this.navBar.getByRole('link', { name: 'Community', exact: true });
   }
 
   async goto() {
@@ -38,5 +35,16 @@ export class HomePage {
 
   async clickCommunity() {
     await this.communityLink.click();
+  }
+
+  /**
+   * Asserts that a nav link satisfies the full accessibility contract:
+   * rendered and visible, not aria-disabled, and href points to a real destination.
+   * Centralises the definition of "accessible link" so the spec reads as intent.
+   */
+  async assertLinkAccessible(link: Locator, expectedHref: RegExp): Promise<void> {
+    await expect(link).toBeVisible();
+    await expect(link).toBeEnabled();
+    await expect(link).toHaveAttribute('href', expectedHref);
   }
 }
