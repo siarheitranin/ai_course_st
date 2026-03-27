@@ -39,12 +39,22 @@ export class HomePage {
 
   /**
    * Asserts that a nav link satisfies the full accessibility contract:
-   * rendered and visible, not aria-disabled, and href points to a real destination.
+   * rendered and visible, not aria-disabled, href points to a real destination,
+   * and not hidden from assistive technology via aria-hidden="true".
    * Centralises the definition of "accessible link" so the spec reads as intent.
    */
   async assertLinkAccessible(link: Locator, expectedHref: RegExp): Promise<void> {
     await expect(link).toBeVisible();
     await expect(link).toBeEnabled();
     await expect(link).toHaveAttribute('href', expectedHref);
+    await expect(link).not.toHaveAttribute('aria-hidden', 'true');
+  }
+
+  /**
+   * Returns the visible text of every link inside the nav bar, in DOM order.
+   * Used to assert that nav items have not been reordered.
+   */
+  async getNavLinkLabelsInDOMOrder(): Promise<string[]> {
+    return this.navBar.getByRole('link').allTextContents();
   }
 }
