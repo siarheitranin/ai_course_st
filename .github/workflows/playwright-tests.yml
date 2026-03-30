@@ -72,3 +72,41 @@ jobs:
           name: playwright-traces
           path: ai.test.maintenance/test-results/**/trace*.zip
           retention-days: 14
+
+      # Notify Microsoft Teams when any previous step in the job has failed
+      - name: Notify Teams on failure
+        if: failure()
+        env:
+          TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          BRANCH: ${{ github.head_ref }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          jq -n \
+            --arg title  "$PR_TITLE" \
+            --arg author "$PR_AUTHOR" \
+            --arg branch "$BRANCH" \
+            --arg url    "$RUN_URL" \
+            '{
+              "@type": "MessageCard",
+              "@context": "https://schema.org/extensions",
+              "summary": "Playwright Tests Failed",
+              "themeColor": "FF0000",
+              "title": "Playwright Tests Failed",
+              "sections": [{
+                "facts": [
+                  {"name": "PR Title", "value": $title},
+                  {"name": "Author",   "value": $author},
+                  {"name": "Branch",   "value": $branch}
+                ]
+              }],
+              "potentialAction": [{
+                "@type": "OpenUri",
+                "name": "View Failed Run",
+                "targets": [{"os": "default", "uri": $url}]
+              }]
+            }' \
+          | curl -s -f -X POST "$TEAMS_WEBHOOK_URL" \
+              -H "Content-Type: application/json" \
+              -d @-
