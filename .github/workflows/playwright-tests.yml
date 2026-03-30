@@ -117,9 +117,9 @@ jobs:
                 "targets": [{"os": "default", "uri": $url}]
               }]
             }' \
-          | curl -s -f -X POST "$TEAMS_WEBHOOK_URL" \
+          | curl -s -X POST "$TEAMS_WEBHOOK_URL" \
               -H "Content-Type: application/json" \
-              -d @-
+              -d @- || echo "Teams notification failed — continuing."
 
       # Fetch previous run history from gh-pages branch (if any) and append the
       # current run record; jq -s slurps both files so the append is safe JSON
