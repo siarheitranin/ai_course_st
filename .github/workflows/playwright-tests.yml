@@ -110,3 +110,48 @@ jobs:
           | curl -s -f -X POST "$TEAMS_WEBHOOK_URL" \
               -H "Content-Type: application/json" \
               -d @-
+
+  security-scan:
+    name: security-scan
+    runs-on: ubuntu-latest
+    continue-on-error: false
+
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+    defaults:
+      run:
+        working-directory: ai.test.maintenance
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: ai.test.maintenance/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Audit for high and critical vulnerabilities; always write summary before exiting
+      - name: Audit dependencies
+        run: |
+          npm audit --audit-level=high > /tmp/audit-report.txt 2>&1 || AUDIT_EXIT=$?
+
+          echo "## Dependency Security Scan" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -n "$AUDIT_EXIT" ]; then
+            echo "**Result: high or critical vulnerabilities detected**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**Result: no high or critical vulnerabilities found**" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat /tmp/audit-report.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+          exit ${AUDIT_EXIT:-0}
