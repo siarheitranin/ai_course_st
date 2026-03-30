@@ -1,0 +1,112 @@
+name: Playwright Tests
+
+on:
+  pull_request:
+    branches:
+      - main
+
+# Cancel any in-progress run for the same PR to avoid redundant work
+concurrency:
+  group: playwright-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+# Minimal read-only permissions
+permissions:
+  contents: read
+
+jobs:
+  playwright-tests:
+    name: playwright-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      CI: true
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+    # All run steps execute inside the project subdirectory
+    defaults:
+      run:
+        working-directory: ai.test.maintenance
+
+    steps:
+      # Checkout the repository at the PR head commit
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Set up Node.js LTS with npm dependency caching
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: ai.test.maintenance/package-lock.json
+
+      # Install project dependencies from the frozen lockfile
+      - name: Install dependencies
+        run: npm ci
+
+      # Install Playwright browsers along with required OS-level dependencies
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      # Execute the full Playwright test suite; playwright.config.ts workers: 3 drives parallelism
+      - name: Run Playwright tests
+        run: npx playwright test
+
+      # Upload the HTML report so it can be downloaded and reviewed after the run
+      # Artifact paths are relative to the workspace root, not working-directory
+      - name: Upload HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-html-report
+          path: ai.test.maintenance/playwright-report/
+          retention-days: 14
+
+      # Upload trace archives for failed tests to aid post-mortem debugging
+      - name: Upload Playwright traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: ai.test.maintenance/test-results/**/trace*.zip
+          retention-days: 14
+
+      # Notify Microsoft Teams when any previous step in the job has failed
+      - name: Notify Teams on failure
+        if: failure()
+        env:
+          TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          BRANCH: ${{ github.head_ref }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          jq -n \
+            --arg title  "$PR_TITLE" \
+            --arg author "$PR_AUTHOR" \
+            --arg branch "$BRANCH" \
+            --arg url    "$RUN_URL" \
+            '{
+              "@type": "MessageCard",
+              "@context": "https://schema.org/extensions",
+              "summary": "Playwright Tests Failed",
+              "themeColor": "FF0000",
+              "title": "Playwright Tests Failed",
+              "sections": [{
+                "facts": [
+                  {"name": "PR Title", "value": $title},
+                  {"name": "Author",   "value": $author},
+                  {"name": "Branch",   "value": $branch}
+                ]
+              }],
+              "potentialAction": [{
+                "@type": "OpenUri",
+                "name": "View Failed Run",
+                "targets": [{"os": "default", "uri": $url}]
+              }]
+            }' \
+          | curl -s -f -X POST "$TEAMS_WEBHOOK_URL" \
+              -H "Content-Type: application/json" \
+              -d @-
