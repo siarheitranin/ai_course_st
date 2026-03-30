@@ -1,7 +1,14 @@
 import { expect, type Page, type Locator } from '@playwright/test';
+import { BasePage } from './BasePage';
 
-export class HomePage {
-  readonly page: Page;
+/**
+ * HomePage — Page Object for https://playwright.dev (root `/`).
+ *
+ * Extends BasePage for shared navigation and load-state utilities.
+ * All locators use ARIA roles and accessible names so the selectors
+ * align with how assistive technology and real users perceive the page.
+ */
+export class HomePage extends BasePage {
   readonly getStartedLink: Locator;
   readonly navBar: Locator;
   readonly docsLink: Locator;
@@ -9,7 +16,7 @@ export class HomePage {
   readonly communityLink: Locator;
 
   constructor(page: Page) {
-    this.page = page;
+    super(page);
     this.getStartedLink = page.getByRole('link', { name: 'Get started' });
     this.navBar = page.getByRole('navigation');
     this.docsLink = this.navBar.getByRole('link', { name: 'Docs', exact: true });
@@ -17,23 +24,23 @@ export class HomePage {
     this.communityLink = this.navBar.getByRole('link', { name: 'Community', exact: true });
   }
 
-  async goto() {
-    await this.page.goto('/');
+  async goto(): Promise<void> {
+    await this.navigate('/');
   }
 
-  async clickGetStarted() {
+  async clickGetStarted(): Promise<void> {
     await this.getStartedLink.click();
   }
 
-  async clickDocs() {
+  async clickDocs(): Promise<void> {
     await this.docsLink.click();
   }
 
-  async clickApi() {
+  async clickApi(): Promise<void> {
     await this.apiLink.click();
   }
 
-  async clickCommunity() {
+  async clickCommunity(): Promise<void> {
     await this.communityLink.click();
   }
 
