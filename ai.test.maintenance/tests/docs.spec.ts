@@ -7,7 +7,7 @@
  *   D3  Main content area is rendered and non-empty
  *   D4  Docs sidebar landmark is present and contains navigation links
  *   D5  Sidebar link navigates to the correct destination
- *   D6  "Edit this page" contribution link is present and points to GitHub
+ *   D6  Installation code block is present in the main content
  *   D7  Cross-page: navigating from Home → Docs lands on the docs intro page
  */
 import { test, expect } from '@playwright/test';
@@ -79,12 +79,15 @@ test.describe('Docs Page', { tag: ['@smoke', '@docs'] }, () => {
   });
 
   // -------------------------------------------------------------------------
-  // D6 — Edit this page
+  // D6 — Installation code block
   // -------------------------------------------------------------------------
 
-  test('edit this page link points to the GitHub source', async () => {
-    await expect(docsPage.editPageLink).toBeVisible();
-    await expect(docsPage.editPageLink).toHaveAttribute('href', /github\.com/);
+  test('installation code block is visible in the main content', async () => {
+    // The intro page always contains at least one pre element with install commands
+    await expect(docsPage.codeBlock).toBeVisible();
+    // Code block must contain non-whitespace text — rejects empty pre elements
+    const text = await docsPage.codeBlock.textContent();
+    expect(text?.trim().length).toBeGreaterThan(0);
   });
 
   // -------------------------------------------------------------------------

@@ -15,17 +15,17 @@ export class DocsPage extends BasePage {
   readonly sidebar: Locator;
   /** Main article content area */
   readonly mainContent: Locator;
-  /** "Edit this page" link present on every docs article */
-  readonly editPageLink: Locator;
+  /** First code block in the main content area (e.g. install commands) */
+  readonly codeBlock: Locator;
   /** Next-page navigation link at the bottom of the article */
   readonly nextPageLink: Locator;
 
   constructor(page: Page) {
     super(page);
-    this.pageHeading  = page.getByRole('heading', { level: 1 });
-    this.sidebar      = page.getByRole('navigation', { name: /docs sidebar/i });
-    this.mainContent  = page.getByRole('main');
-    this.editPageLink = page.getByRole('link', { name: /edit this page/i });
+    this.pageHeading = page.getByRole('heading', { level: 1 });
+    this.sidebar     = page.getByRole('navigation', { name: /docs sidebar/i });
+    this.mainContent = page.getByRole('main');
+    this.codeBlock   = page.getByRole('main').locator('pre').first();
     this.nextPageLink = page.getByRole('link', { name: /next/i });
   }
 
