@@ -10,7 +10,7 @@ concurrency:
   group: playwright-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
-# Minimal read-only permissions
+# Default minimal permissions; playwright-tests overrides at job level
 permissions:
   contents: read
 
@@ -19,6 +19,18 @@ jobs:
     name: playwright-tests
     runs-on: ubuntu-latest
     timeout-minutes: 30
+
+    # Expanded permissions required for GitHub Pages OIDC deployment
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+
+    # Associates the job with the github-pages deployment environment;
+    # exposes the published URL once deploy-pages completes
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy-pages.outputs.page_url }}
 
     env:
       CI: true
@@ -110,6 +122,46 @@ jobs:
           | curl -s -f -X POST "$TEAMS_WEBHOOK_URL" \
               -H "Content-Type: application/json" \
               -d @-
+
+      # Fetch previous run history from gh-pages branch (if any) and append the
+      # current run record; jq -s slurps both files so the append is safe JSON
+      - name: Prepare history.json
+        if: always() && github.ref == 'refs/heads/main'
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SHA: ${{ github.sha }}
+          REF: ${{ github.ref }}
+          CONCLUSION: ${{ job.status }}
+        run: |
+          git fetch origin gh-pages --depth=1 2>/dev/null || true
+          git show origin/gh-pages:history.json > /tmp/prev-history.json 2>/dev/null \
+            || echo '[]' > /tmp/prev-history.json
+
+          jq -n \
+            --arg ts         "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg run_url    "$RUN_URL" \
+            --arg sha        "$SHA" \
+            --arg ref        "$REF" \
+            --arg conclusion "$CONCLUSION" \
+            '{timestamp: $ts, run_url: $run_url, sha: $sha, ref: $ref, conclusion: $conclusion}' \
+            > /tmp/new-entry.json
+
+          jq -s '.[0] + [.[1]]' /tmp/prev-history.json /tmp/new-entry.json \
+            > playwright-report/history.json
+
+      # Upload playwright-report/ (including history.json) as the Pages site artifact;
+      # path is relative to $GITHUB_WORKSPACE — uses: steps ignore working-directory
+      - name: Upload Pages artifact
+        if: always() && github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ai.test.maintenance/playwright-report/
+
+      # Deploy the uploaded artifact to GitHub Pages
+      - name: Deploy to GitHub Pages
+        id: deploy-pages
+        if: always() && github.ref == 'refs/heads/main'
+        uses: actions/deploy-pages@v4
 
   security-scan:
     name: security-scan
