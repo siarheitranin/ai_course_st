@@ -4,6 +4,19 @@ A production-ready end-to-end test automation framework built with **TypeScript*
 
 ---
 
+## Repository layout
+
+This repository contains two independent subprojects, each representing a different stage of AI-assisted test automation work:
+
+| Subproject | Purpose | CI/CD |
+|---|---|---|
+| [`ai.test.maintenance/`](./ai.test.maintenance/) | **Primary portfolio project.** Tests [playwright.dev](https://playwright.dev) against a live public URL. Full POM hierarchy, 31 passing tests, GitHub Actions pipeline, Pages report. | Runs on every PR and push to `main` |
+| [`ai_assisted_refactoring_and_upgrades/`](./ai_assisted_refactoring_and_upgrades/) | **Framework architecture reference.** Demonstrates an advanced POM pattern: fixtures, reusable components, 8 page classes, and centralized test data. Tests target `http://localhost:3000` and require a local backend to execute. | Excluded from CI — no public backend available |
+
+The sections below describe `ai.test.maintenance`, which is the runnable, CI-verified project.
+
+---
+
 ## What this framework does
 
 - Validates the navigation structure and accessibility contract of [playwright.dev](https://playwright.dev)
@@ -106,7 +119,7 @@ HomePage  extends BasePage
 └── getNavLinkLabelsInDOMOrder()
 
 DocsPage  extends BasePage
-├── Locators: pageHeading, sidebar, mainContent, editPageLink, nextPageLink
+├── Locators: pageHeading, sidebar, mainContent, codeBlock, nextPageLink
 ├── goto()                 navigates to /docs/intro
 ├── clickSidebarLink(label)
 └── getSidebarCategoryLabels()
@@ -148,6 +161,12 @@ pull_request / push to main
 Artifacts available for download on every run (14-day retention):
 - `playwright-html-report` — interactive pass/fail report with screenshots
 - `playwright-traces` — Playwright trace files for failed tests (open with `npx playwright show-trace`)
+
+> `ai_assisted_refactoring_and_upgrades` is not included in the pipeline. Its tests require a
+> running backend at `http://localhost:3000` which is not available in a public CI environment.
+> The subproject is included as an architecture reference demonstrating fixtures, reusable
+> components, and multi-page POM patterns. See its own
+> [`README`](./ai_assisted_refactoring_and_upgrades/README.md) for local setup instructions.
 
 ---
 
