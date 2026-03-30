@@ -4,13 +4,19 @@ on:
   pull_request:
     branches:
       - main
+  # Required so the Pages deploy job runs after merges to main
+  push:
+    branches:
+      - main
 
-# Cancel any in-progress run for the same PR to avoid redundant work
+# Cancel any in-progress run for the same PR to avoid redundant work;
+# push runs on main are not cancelled (cancel-in-progress: false equivalent
+# is achieved by scoping the group to event name)
 concurrency:
-  group: playwright-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
+  group: playwright-${{ github.event_name }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-# Minimal read-only permissions
+# Default minimal permissions; individual jobs override where needed
 permissions:
   contents: read
 
@@ -110,3 +116,106 @@ jobs:
           | curl -s -f -X POST "$TEAMS_WEBHOOK_URL" \
               -H "Content-Type: application/json" \
               -d @-
+
+      # Fetch previous run history from gh-pages branch (if any) and append the
+      # current run record; jq -s slurps both files so the append is safe JSON
+      - name: Prepare history.json
+        if: always() && github.ref == 'refs/heads/main'
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SHA: ${{ github.sha }}
+          REF: ${{ github.ref }}
+          CONCLUSION: ${{ job.status }}
+        run: |
+          git fetch origin gh-pages --depth=1 2>/dev/null || true
+          git show origin/gh-pages:history.json > /tmp/prev-history.json 2>/dev/null \
+            || echo '[]' > /tmp/prev-history.json
+
+          jq -n \
+            --arg ts         "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg run_url    "$RUN_URL" \
+            --arg sha        "$SHA" \
+            --arg ref        "$REF" \
+            --arg conclusion "$CONCLUSION" \
+            '{timestamp: $ts, run_url: $run_url, sha: $sha, ref: $ref, conclusion: $conclusion}' \
+            > /tmp/new-entry.json
+
+          jq -s '.[0] + [.[1]]' /tmp/prev-history.json /tmp/new-entry.json \
+            > playwright-report/history.json
+
+      # Upload playwright-report/ (including history.json) as the Pages site artifact;
+      # path is relative to $GITHUB_WORKSPACE — uses: steps ignore working-directory
+      - name: Upload Pages artifact
+        if: always() && github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ai.test.maintenance/playwright-report/
+
+  # Isolated deploy job so environment: github-pages protection rules only
+  # apply here and never block PR runs of playwright-tests
+  deploy-pages:
+    name: deploy-pages
+    needs: playwright-tests
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    permissions:
+      pages: write
+      id-token: write
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4
+
+  security-scan:
+    name: security-scan
+    runs-on: ubuntu-latest
+    continue-on-error: false
+
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+    defaults:
+      run:
+        working-directory: ai.test.maintenance
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: ai.test.maintenance/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Audit for high and critical vulnerabilities; always write summary before exiting
+      - name: Audit dependencies
+        run: |
+          npm audit --audit-level=high > /tmp/audit-report.txt 2>&1 || AUDIT_EXIT=$?
+
+          echo "## Dependency Security Scan" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -n "$AUDIT_EXIT" ]; then
+            echo "**Result: high or critical vulnerabilities detected**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**Result: no high or critical vulnerabilities found**" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat /tmp/audit-report.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+          exit ${AUDIT_EXIT:-0}
