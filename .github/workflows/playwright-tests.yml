@@ -89,6 +89,10 @@ jobs:
           BRANCH: ${{ github.head_ref }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
+          if [ -z "$TEAMS_WEBHOOK_URL" ]; then
+            echo "TEAMS_WEBHOOK_URL secret not configured — skipping notification."
+            exit 0
+          fi
           jq -n \
             --arg title  "$PR_TITLE" \
             --arg author "$PR_AUTHOR" \
@@ -156,7 +160,7 @@ jobs:
   deploy-pages:
     name: deploy-pages
     needs: playwright-tests
-    if: github.ref == 'refs/heads/main'
+    if: always() && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
 
     permissions:
