@@ -22,38 +22,46 @@ jobs:
 
     env:
       CI: true
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+    # All run steps execute inside the project subdirectory
+    defaults:
+      run:
+        working-directory: ai.test.maintenance
 
     steps:
       # Checkout the repository at the PR head commit
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Set up Node.js LTS with Yarn dependency caching
+      # Set up Node.js LTS with npm dependency caching
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: lts/*
-          cache: yarn
+          cache: npm
+          cache-dependency-path: ai.test.maintenance/package-lock.json
 
       # Install project dependencies from the frozen lockfile
       - name: Install dependencies
-        run: yarn install --immutable --immutable-cache --check-cache
+        run: npm ci
 
       # Install Playwright browsers along with required OS-level dependencies
       - name: Install Playwright browsers
-        run: yarn playwright install --with-deps
+        run: npx playwright install --with-deps
 
       # Execute the full Playwright test suite; config workers: 3 drives parallelism
       - name: Run Playwright tests
-        run: yarn playwright test
+        run: npx playwright test
 
       # Upload the HTML report so it can be downloaded and reviewed after the run
+      # Artifact paths are relative to the workspace root, not working-directory
       - name: Upload HTML report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-html-report
-          path: playwright-report/
+          path: ai.test.maintenance/playwright-report/
           retention-days: 14
 
       # Upload trace archives for failed tests to aid post-mortem debugging
@@ -62,5 +70,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: playwright-traces
-          path: test-results/**/trace*.zip
+          path: ai.test.maintenance/test-results/**/trace*.zip
           retention-days: 14
