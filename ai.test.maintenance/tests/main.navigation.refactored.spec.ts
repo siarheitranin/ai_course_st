@@ -1,5 +1,5 @@
 /**
- * TC-001 — Main Page Navigation Buttons: Docs, API, Community
+ * TC-NAV-001 — Main Page Navigation Buttons: Docs, API, Community
  *
  * Validates per the manual test case:
  *  E1 — Page loads https://playwright.dev with the correct title
@@ -17,7 +17,9 @@ import { HomePage } from '../pages/HomePage';
 // ---------------------------------------------------------------------------
 type NavLink = {
   label: string;
+  /** href attribute anchored to path start; prevents accidental substring matches */
   expectedHref: RegExp;
+  /** URL pattern scoped to playwright.dev; rejects cross-domain redirects */
   expectedUrl: RegExp;
   locator: (h: HomePage) => Locator;
   click: (h: HomePage) => Promise<void>;
@@ -26,34 +28,37 @@ type NavLink = {
 const NAV_LINKS: NavLink[] = [
   {
     label: 'Docs',
-    expectedHref: /\/docs/,
-    expectedUrl: /\/docs/,
+    expectedHref: /^\/docs/,
+    expectedUrl: /playwright\.dev\/docs/,
     locator: (h) => h.docsLink,
     click: (h) => h.clickDocs(),
   },
   {
     label: 'API',
-    expectedHref: /\/api/,
-    expectedUrl: /\/api/,
+    // playwright.dev nests the API reference under /docs/api/
+    expectedHref: /^\/docs\/api/,
+    expectedUrl: /playwright\.dev\/docs\/api/,
     locator: (h) => h.apiLink,
     click: (h) => h.clickApi(),
   },
   {
     label: 'Community',
-    expectedHref: /\/community/,
-    expectedUrl: /\/community/,
+    expectedHref: /^\/community/,
+    expectedUrl: /playwright\.dev\/community/,
     locator: (h) => h.communityLink,
     click: (h) => h.clickCommunity(),
   },
 ];
 
-test.describe('Main Page Navigation', () => {
+test.describe('Main Page Navigation', { tag: ['@smoke', '@navigation'] }, () => {
   let homePage: HomePage;
 
   test.beforeEach(async ({ page }) => {
+    test.info().annotations.push({ type: 'TestCase', description: 'TC-NAV-001' });
+
     homePage = new HomePage(page);
     await homePage.goto();
-    // E1 — smoke check: correct page served before any navigation assertion runs
+    // E1 — fail fast: assert the correct page was served before any nav check runs
     await expect(page).toHaveTitle(/Playwright/);
   });
 
@@ -66,22 +71,16 @@ test.describe('Main Page Navigation', () => {
   });
 
   // -------------------------------------------------------------------------
-  // E3 / E4 / E5 — Per-link display and accessibility
+  // E3 / E4 / E5 — Per-link accessibility
   //
-  // Fixes applied vs legacy spec:
-  //   SEL-1  CSS #docs ID selector → getByRole scoped to <nav>, exact: true (via POM)
-  //   SEL-2  Unscoped page-wide search → scoped to navBar locator (via POM)
-  //   SEL-3  Missing exact: true → restored (via POM)
-  //   A11Y-1 navBar.toBeVisible() → enforced in the landmark test above
-  //   A11Y-2 Missing toBeEnabled() → restored per link
-  //   A11Y-3 Missing toHaveAttribute('href') → restored per link
-  //   DUP-1  Repeated visibility checks → single data-driven loop
-  //   READ-1 Mixed { page } injection → all display tests use only POM
+  // assertLinkAccessible delegates to the POM the full contract: visible,
+  // enabled, href anchored to a real path, and not hidden from assistive
+  // technology. Keeping the contract in the POM means adding a new check
+  // (e.g. aria-label text) requires a change in one place only.
   // -------------------------------------------------------------------------
 
   for (const { label, expectedHref, locator } of NAV_LINKS) {
     test(`${label} link is visible, accessible, enabled and has a valid href`, async () => {
-      // Delegates to POM: visible · not aria-disabled · href points to a real destination
       await homePage.assertLinkAccessible(locator(homePage), expectedHref);
     });
   }
@@ -89,24 +88,23 @@ test.describe('Main Page Navigation', () => {
   // -------------------------------------------------------------------------
   // E3 / E4 / E5 — Navigation destinations
   //
-  // Fixes applied vs legacy spec:
-  //   SYNC-1 waitForTimeout(2000) removed — toHaveURL auto-retries until settled
-  //   COV-1  /.+/ replaced with specific per-link URL patterns
-  //   COV-2  No content check → page main region asserted after navigation
-  //   ENC-1  homePage.page exposed in spec → { page } fixture used directly
+  // URL pattern is scoped to playwright.dev so a redirect to an unrelated
+  // domain cannot pass. Heading check confirms the destination page actually
+  // rendered content — an empty <main> would satisfy a plain visibility check.
   // -------------------------------------------------------------------------
 
   test.describe('Navigation destinations', () => {
     for (const { label, click, expectedUrl } of NAV_LINKS) {
       test(`${label} link navigates to the correct page`, async ({ page }) => {
-        // Action
         await click(homePage);
 
-        // URL — specific pattern; a 404, redirect loop, or wrong route will fail this
+        // Domain-scoped URL; a 404, redirect loop, or wrong domain will fail this
         await expect(page).toHaveURL(expectedUrl);
 
-        // Content — destination page rendered its main region
-        await expect(page.getByRole('main')).toBeVisible();
+        // Destination page rendered a populated primary heading
+        const heading = page.getByRole('heading', { level: 1 });
+        await expect(heading).toBeVisible();
+        await expect(heading).toContainText(/\w+/);
       });
     }
   });
