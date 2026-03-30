@@ -22,10 +22,11 @@ test.describe('Main Page Navigation', () => {
     await expect(homePage.communityLink).toBeVisible();
   });
 
-  test('should display the Docs navigation link', async ({ page }) => {
+  test.fixme('should display the Docs navigation link', async ({ page }) => {
     // DEGRADED: brittle CSS ID selector bypasses role/label resolution entirely —
     // playwright.dev has no #docs element, so this locator matches nothing and the test will fail;
     // even if the id existed, renaming or removing it breaks the test without any HTML/a11y signal
+    // test.fixme: preserved as a training artefact to demonstrate the antipattern
     const docsLink = page.locator('#docs');
     await expect(docsLink).toBeVisible();
     // DEGRADED: toBeEnabled() removed — an aria-disabled link would pass this test
