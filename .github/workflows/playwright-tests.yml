@@ -4,13 +4,19 @@ on:
   pull_request:
     branches:
       - main
+  # Required so the Pages deploy job runs after merges to main
+  push:
+    branches:
+      - main
 
-# Cancel any in-progress run for the same PR to avoid redundant work
+# Cancel any in-progress run for the same PR to avoid redundant work;
+# push runs on main are not cancelled (cancel-in-progress: false equivalent
+# is achieved by scoping the group to event name)
 concurrency:
-  group: playwright-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
+  group: playwright-${{ github.event_name }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-# Default minimal permissions; playwright-tests overrides at job level
+# Default minimal permissions; individual jobs override where needed
 permissions:
   contents: read
 
@@ -19,18 +25,6 @@ jobs:
     name: playwright-tests
     runs-on: ubuntu-latest
     timeout-minutes: 30
-
-    # Expanded permissions required for GitHub Pages OIDC deployment
-    permissions:
-      contents: read
-      pages: write
-      id-token: write
-
-    # Associates the job with the github-pages deployment environment;
-    # exposes the published URL once deploy-pages completes
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy-pages.outputs.page_url }}
 
     env:
       CI: true
@@ -157,10 +151,28 @@ jobs:
         with:
           path: ai.test.maintenance/playwright-report/
 
-      # Deploy the uploaded artifact to GitHub Pages
+  # Isolated deploy job so environment: github-pages protection rules only
+  # apply here and never block PR runs of playwright-tests
+  deploy-pages:
+    name: deploy-pages
+    needs: playwright-tests
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    permissions:
+      pages: write
+      id-token: write
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+    steps:
       - name: Deploy to GitHub Pages
-        id: deploy-pages
-        if: always() && github.ref == 'refs/heads/main'
+        id: deploy
         uses: actions/deploy-pages@v4
 
   security-scan:
